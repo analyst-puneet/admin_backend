@@ -9,7 +9,9 @@ app.use(cookieParser());
 app.use(express.json());
 const authRoutes = require('./routes/auth');
 const corsOption = {
-    origin: ['http://localhost:5173'],
+    origin: ['http://localhost:5173',
+            'https://backend-aufx.onrender.com/'
+    ],
     credentials: true,
 };
 app.use(cors(corsOption));
