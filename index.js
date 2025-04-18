@@ -9,17 +9,21 @@ connectDB();
 const app = express();
 app.use(cookieParser());
 app.use(express.json());
-const Corsoption= ['https://admin-edu-assist.vercel.app/'];
-//const corsOption = {
- //   origin: ['http://localhost:5173',
-  //          'https://admin-edu-assist.vercel.app/'
-  //  ],
-   // credentials: true,
-}//;
-app.use(cors(
-     origin: Corsoption,
-   credentials: true,
-));
+const allowedOrigins = [
+  'https://admin-edu-assist.vercel.app',
+  'http://localhost:3000' // dev
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
 app.use('/api/auth', authRoutes);
 const PORT = process.env.PORT || 5000;
 app.use('/api/leave_group', leaveGroupMastRoutes);
