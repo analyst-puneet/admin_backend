@@ -3,7 +3,12 @@ const router = express.Router();
 const MasterModel = require('../models/MasterModel');
 const { Index, Create, Update, Delete } = require('../controllers/MasterData');
 
-const validMasters = ['role_group', 'ountry', 'state', 'gender', 'blood_group'];
+
+const validMasters = ['role_group', 'country', 'state', 'gender', 'blood_group',
+  'category','religion','house_mast','education_type','document_type','relation_mast',
+  'marital_status','religion','department_mast','designation_mast'
+];
+
 
 router.use('/:masterName', (req, res, next) => {
   const { masterName } = req.params;
@@ -17,7 +22,7 @@ router.use('/:masterName', (req, res, next) => {
 
 router.get('/:masterName', Index);
 router.post('/:masterName/create', Create);
-router.put('/:masterName/update/:id', Update);
-router.delete('/:masterName/delete/:id', Delete);
+router.post('/:masterName/update/:id', Update);
+router.post('/:masterName/delete/:id', Delete);
 
 module.exports = router;
