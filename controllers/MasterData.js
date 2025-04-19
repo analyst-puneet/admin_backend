@@ -10,11 +10,12 @@ const Index = async (req, res) => {
   };
   
   const Create = async (req, res) => {
-    const Master = req.Master;
-    const { name, status, created_by, updated_by } = req.body;
-    const data = new Master({ name, status, created_by, updated_by });
-  
+    const Master = MasterModel(req.Master);
+
+    
     try {
+      const { name, status, created_by, updated_by } = req.body;
+      const data = new Master({ name, status, created_by, updated_by });
       const savedData = await data.save();
       res.status(201).json(savedData);
     } catch (error) {
@@ -23,7 +24,8 @@ const Index = async (req, res) => {
   };
   
   const Update = async (req, res) => {
-    const Master = req.Master;
+        const Master = MasterModel(req.Master);
+
     const { id } = req.params;
     const { name, status, updated_by } = req.body;
   
@@ -43,7 +45,8 @@ const Index = async (req, res) => {
   };
   
   const Delete = async (req, res) => {
-    const Master = req.Master;
+        const Master = MasterModel(req.Master);
+
     const { id } = req.params;
   
     try {
