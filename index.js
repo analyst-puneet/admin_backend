@@ -25,10 +25,6 @@ app.use(cors({
   credentials: true
 }));
 app.use('/api/auth', authRoutes);
-app.get('/api/master', (req, res) => {
-    console.log("Hit /api/master");
-    res.status(200).json({ message: "Master route works!" });
-});
 const PORT = process.env.PORT || 5000;
 app.use('/api/leave_group', leaveGroupMastRoutes);
 app.get('/', (req, res) => {
