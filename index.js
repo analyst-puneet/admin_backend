@@ -3,6 +3,7 @@ const connectDB = require('./config/database');
 const cors = require("cors");
 const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/auth');
+const masterRoutes = require('./routes/masterRoutes');
 const leaveGroupMastRoutes = require('./routes/leaveGroupMast'); 
 connectDB();
 
@@ -18,6 +19,7 @@ const corsOption = {
 };
 app.use(cors(corsOption));
 app.use('/api/auth', authRoutes);
+app.use('/api/master', masterRoutes);
 const PORT = process.env.PORT || 5000;
 app.use('/api/leave_group', leaveGroupMastRoutes);
 app.get('/', (req, res) => {

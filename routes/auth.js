@@ -7,4 +7,3 @@ router.post('/logout', logout);
 router.get('/validate', validate);
 
 module.exports = router;
- 
