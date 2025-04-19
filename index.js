@@ -3,7 +3,7 @@ const connectDB = require('./config/database');
 const cors = require("cors");
 const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/auth');
-const masterRoutes = require('./routes/masterRoutes');
+const masterRoutes = require('./routes/MasterRoutes');
 const leaveGroupMastRoutes = require('./routes/leaveGroupMast'); 
 connectDB();
 
