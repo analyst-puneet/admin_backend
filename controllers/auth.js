@@ -61,7 +61,7 @@ const logout = (req, res) => {
     res.clearCookie("token");
     res.clearCookie("UserId");
     res.clearCookie("remember_token");
-    res.json({ message: "Logged out successfully" });
+    res.status(200).json({ message: "Logged out successfully" });
 };
 const validate = async (req, res) => {
     try {
