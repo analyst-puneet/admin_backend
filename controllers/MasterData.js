@@ -15,7 +15,7 @@ const Index = async (req, res) => {
       const { name, status, created_by, updated_by } = req.body;
       const data = new Master({ name, status, created_by, updated_by });
       const savedData = await data.save();
-      res.status(201).json(savedData);
+      res.status(200).json(savedData);
     } catch (error) {
       const fieldMessages = {};
       if (error.name === 'ValidationError') {
