@@ -5,7 +5,10 @@ const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/auth');
 const masterRoutes = require('./routes/MasterRoutes');
 const leaveGroupMastRoutes = require('./routes/leaveGroupMast'); 
+const userDetailsRoutes = require('./routes/UserDetailsRoutes');
+const {validate_request} = require('./controllers/common/validate_request');
 connectDB();
+
 
 const app = express();
 app.use(cookieParser());
@@ -26,9 +29,10 @@ app.use(cors({
   credentials: true
 }));
 app.use('/api/auth', authRoutes);
-app.use('/api/master', masterRoutes);
-const PORT = process.env.PORT || 5000;
+app.use('/api/master', validate_request,masterRoutes);
+app.use('/api/user_details',validate_request,userDetailsRoutes);
 app.use('/api/leave_group', leaveGroupMastRoutes);
+const PORT = process.env.PORT || 5000;
 app.get('/', (req, res) => {
     res.send('Welcome to Node.js and MongoDB backend');
 });

@@ -21,7 +21,6 @@ const checkUserToken = async (req, res, next) => {
     if (!userId || !rememberToken) {
         return res.status(401).json({ message: 'Access denied. No UserId or remember_token provided.' });
     }
-//  console.log(userId,rememberToken);
     try {
         const user = await User.findById(userId);
         if (!user) {
