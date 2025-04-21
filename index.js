@@ -15,7 +15,7 @@ app.use(cookieParser());
 app.use(express.json());
 const allowedOrigins = [
   'https://admin-edu-assist.vercel.app',
-  'http://localhost:3000' // dev
+  'http://localhost:5173' // dev
 ];
 
 app.use(cors({
