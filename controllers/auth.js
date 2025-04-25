@@ -32,21 +32,21 @@ const login = async (req, res) => {
             httpOnly: true,
             secure: true,
             sameSite: "None",
-            maxAge: 60 * 60 * 1000 
+            maxAge: 24 * 60 * 60 * 1000 
         });
 
         res.cookie("UserId", user._id, {
             httpOnly: true,
             secure: true,
             sameSite: "None",
-            maxAge: 60 * 60 * 1000
+            maxAge: 24 * 60 * 60 * 1000
         });
 
         res.cookie("remember_token", remember_token, {
             httpOnly: true,
             secure: true,
             sameSite: "None",
-            maxAge: 60 * 60 * 1000
+            maxAge: 24 * 60 * 60 * 1000
         });
         console.log(user._id);
         return res.status(200).json({ message: "Login successful" });
