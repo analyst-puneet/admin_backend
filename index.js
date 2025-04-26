@@ -6,7 +6,9 @@ const authRoutes = require('./routes/auth');
 const masterRoutes = require('./routes/MasterRoutes');
 const leaveGroupMastRoutes = require('./routes/leaveGroupMast'); 
 const userDetailsRoutes = require('./routes/UserDetailsRoutes');
-const {validate_request} = require('./controllers/common/validate_request');
+// const {validate_request} = require('./controllers/common/validate_request');
+const {checkUserToken, authenticate} = require('./middleware/Authenticate_User');
+
 connectDB();
 
 
@@ -29,8 +31,8 @@ app.use(cors({
   credentials: true
 }));
 app.use('/api/auth', authRoutes);
-app.use('/api/master', validate_request,masterRoutes);
-app.use('/api/user_details',validate_request,userDetailsRoutes);
+app.use('/api/master',{authenticate,checkUserToken},masterRoutes);
+app.use('/api/user_details',{authenticate,checkUserToken},userDetailsRoutes);
 app.use('/api/leave_group', leaveGroupMastRoutes);
 const PORT = process.env.PORT || 5000;
 app.get('/', (req, res) => {
