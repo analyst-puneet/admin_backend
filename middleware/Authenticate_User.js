@@ -15,8 +15,8 @@ const authenticate = (req, res, next) => {
     }
 };
 const checkUserToken = async (req, res, next) => {
-    const userId = req.header('UserId');
-    const rememberToken = req.header('remember_token');
+    const userId = req.cookies.UserId;
+    const rememberToken = req.cookies.remember_token;
 
     if (!userId || !rememberToken) {
         return res.status(401).json({ message: 'Access denied. No UserId or remember_token provided.' });
