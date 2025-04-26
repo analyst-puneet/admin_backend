@@ -7,6 +7,15 @@ const get_all_data = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+const get_data = async (req, res) => {
+    const id= req.params;
+  try {
+        const data = await UserDetails.findOne({_id:id});
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 const Create = async (req, res) => {
   try {
@@ -122,4 +131,4 @@ const Delete = async (req, res) => {
   }
 };
 
-module.exports = { get_all_data, Create, Update, Delete };
+module.exports = { get_all_data,get_data, Create, Update, Delete };

@@ -15,7 +15,7 @@ app.use(cookieParser());
 app.use(express.json());
 const allowedOrigins = [
   'https://admin-edu-assist.vercel.app',
-  'http://localhost:3000' // dev
+  'http://localhost:5173' 
 ];
 
 app.use(cors({
@@ -29,8 +29,8 @@ app.use(cors({
   credentials: true
 }));
 app.use('/api/auth', authRoutes);
-app.use('/api/master', validate_request,masterRoutes);
-app.use('/api/user_details',validate_request,userDetailsRoutes);
+app.use('/api/master',validate_request,masterRoutes);
+app.use('/api/user_details',userDetailsRoutes);
 app.use('/api/leave_group', leaveGroupMastRoutes);
 const PORT = process.env.PORT || 5000;
 app.get('/', (req, res) => {

@@ -17,8 +17,6 @@ const login = async (req, res) => {
 
         user.remember_token = hashedToken;
         await user.save();
-        res.set('UserId', user._id); 
-        res.set('remember_token', remember_token);
         const tokenData = {
             id: user._id,
             email: user.email,
@@ -26,29 +24,29 @@ const login = async (req, res) => {
             role_id: user.role_id
         };
         
-        const token = await jwt.sign(tokenData, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
+        const token = await jwt.sign(tokenData, process.env.JWT_SECRET_KEY, { expiresIn: '24h' });
 
         res.cookie("token", token, {
             httpOnly: true,
             secure: true,
             sameSite: "None",
-            maxAge: 60 * 60 * 1000 
+            maxAge: 24 * 60 * 60 * 1000 
         });
 
         res.cookie("UserId", user._id, {
             httpOnly: true,
             secure: true,
             sameSite: "None",
-            maxAge: 60 * 60 * 1000
+            maxAge: 24 * 60 * 60 * 1000
         });
 
         res.cookie("remember_token", remember_token, {
             httpOnly: true,
             secure: true,
             sameSite: "None",
-            maxAge: 60 * 60 * 1000
+            maxAge: 24 * 60 * 60 * 1000
         });
-        console.log(user._id);
+        // console.log(user._id);
         return res.status(200).json({ message: "Login successful" });
 
 
@@ -58,10 +56,22 @@ const login = async (req, res) => {
 };
 
 const logout = (req, res) => {
-    res.clearCookie("token");
-    res.clearCookie("UserId");
-    res.clearCookie("remember_token");
-    res.status(200).json({ message: "Logged out successfully" });
+    res.clearCookie("token", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "None"
+    });
+    res.clearCookie("UserId", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "None"
+    });
+    res.clearCookie("remember_token", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "None"
+    });
+    return res.status(200).json({ message: "Logged out successfully" });
 };
 const validate = async (req, res) => {
     try {
@@ -81,7 +91,7 @@ const validate = async (req, res) => {
         }
 
     } catch (error) {
-        console.error("Validation error:", error);
+        // console.error("Validation error:", error);
         res.status(500).json({ message: "Internal server error" });
     }
 };

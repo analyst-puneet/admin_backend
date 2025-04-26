@@ -2,32 +2,27 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const User = require('../../models/User');
 
-const validate_request = async (req, res, next) => {
-  const { token, userId, rememberToken } = req.body ?? {};
-
-  
+const validate_request = async (req, res,next) => {
   try {
-    if (!token || !userId || !rememberToken) {
-      return res.status(401).json({ message: 'Access denied. No token, userId or rememberToken present In request Body.' });
-    }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
-    console.log('yes decoded=',decoded);
-    req.user = decoded;
+      const token = req.cookies.token; 
+      const remember_token = req.cookies.remember_token; 
+      const userId = req.cookies.UserId; 
+      if (!remember_token || !userId || !token) {
+          return res.status(401).json({ message: "Unauthorized" });
+      }
 
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(401).json({ message: 'User not found.' });
-    }
+      const user = await User.findOne({ _id: userId });
 
-    const isTokenMatch = await bcrypt.compare(rememberToken, user.remember_token);
-    if (!isTokenMatch) {
-      return res.status(401).json({ message: 'Invalid remember token.' });
-    }
+      if (user) {
+          // return res.status(200).json({ userId: user._id });
+          next();
+      } else {
+          return res.status(404).json({ message: "User not found" });
+      }
 
-    next();
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+      // console.error("Validation error:", error);
+      res.status(500).json({ message: "Internal server error" });
   }
 };
-
 module.exports = { validate_request };
