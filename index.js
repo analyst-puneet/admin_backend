@@ -7,7 +7,6 @@ const masterRoutes = require('./routes/MasterRoutes');
 const leaveGroupMastRoutes = require('./routes/leaveGroupMast'); 
 const userDetailsRoutes = require('./routes/UserDetailsRoutes');
 const {validate_request} = require('./controllers/common/validate_request');
-// const {checkUserToken, authenticate} = require('./middleware/Authenticate_User');
 
 connectDB();
 
