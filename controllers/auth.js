@@ -3,6 +3,37 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt'); 
 const crypto = require('crypto');
 
+const register = async (req, res) => {
+    try {
+        const { username, password, confirmPassword,email } = req.body;
+        if (!username || !email|| !password || !confirmPassword) {
+            return res.status(400).json({ message: "All fields are required" });
+        }
+        if (password !== confirmPassword) {
+            return res.status(400).json({ message: "Password do not match" });
+        }
+
+        const user = await User.findOne({ username });
+        if (user) {
+            return res.status(400).json({ message: "Username already exit " });
+        }
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await User.create({
+            email,
+            username,
+            password: hashedPassword,
+            original_password: password,
+        });
+        return res.status(201).json({
+            message: "Account created successfully.",
+            success: true
+        })
+    } catch (error) {
+        console.log(error);
+    }
+};
+
+
 const login = async (req, res) => {
     const { username, password } = req.body;
     try {
@@ -130,4 +161,4 @@ const validate = async (req, res) => {
     }
 };
 
-module.exports = { login, logout, validate };
+module.exports = { register, login, logout, validate };

@@ -12,8 +12,9 @@ const Index = async (req, res) => {
   const Create = async (req, res) => {
     const Master = MasterModel(req.Master);
     try {
-      const { name, status, created_by, updated_by } = req.body;
-      const data = new Master({ name, status, created_by, updated_by });
+      const { name, status } = req.body;
+      const created_by=req.cookies.UserId;
+      const data = new Master({ name, status, created_by:created_by });
       const savedData = await data.save();
       res.status(200).json(savedData);
     } catch (error) {
@@ -56,9 +57,9 @@ const Index = async (req, res) => {
   const Update = async (req, res) => {
     const Master = MasterModel(req.Master);
     const { id } = req.params;
-    const { name, status, updated_by } = req.body;
-  
+    const { name, status } = req.body;
     try {
+      const updated_by=req.cookies.UserId
       const updatedData = await Master.findByIdAndUpdate(
         id,
         { name, status, updated_by },

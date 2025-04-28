@@ -19,9 +19,11 @@ const get_data = async (req, res) => {
 
 const Create = async (req, res) => {
   try {
+    const { cantact_no_1 }= req.body;
     const newUserDetails = new UserDetails(req.body);
-    const savedData = await newUserDetails.save();
+    // const savedData = await newUserDetails.save();
     res.status(201).json(savedData);
+
   } catch (error) {
     const fieldMessages = {};
     if (error.name === 'ValidationError') {
