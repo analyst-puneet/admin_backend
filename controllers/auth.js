@@ -14,6 +14,7 @@ const register = async (req, res) => {
         }
 
         const user = await User.findOne({ username });
+        console.log(user);
         if (user) {
             return res.status(400).json({ message: "Username already exit " });
         }
@@ -24,6 +25,7 @@ const register = async (req, res) => {
             password: hashedPassword,
             original_password: password,
         });
+        // console.log(User.findOne({username}));
         return res.status(201).json({
             message: "Account created successfully.",
             success: true

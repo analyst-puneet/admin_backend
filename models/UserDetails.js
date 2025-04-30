@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
+const AutoIncrement = require('mongoose-sequence')(mongoose);
 
 const userDetailsSchema = new mongoose.Schema({
+  sequenceNo: {
+    type: Number,
+    unique: true
+  },
   user_id: { type: String, required: true, unique: true },
   first_name: { type: String, required: true },
   middle_name: { type: String },
@@ -8,8 +13,8 @@ const userDetailsSchema = new mongoose.Schema({
   full_name: { type: String , required: true},
   email: { type: String , required: true},
   alt_email: { type: String },
-  cantact_no_1: { type: String, required: true },
-  cantact_no_2: { type: String },
+  contact_no_1: { type: String, required: true },
+  contact_no_2: { type: String },
   father_name: { type: String , required: true},
   father_contact_no: { type: String , required: true},
   father_dob: { type: Date, required: true },
@@ -57,7 +62,7 @@ const userDetailsSchema = new mongoose.Schema({
   religion: { type: String, required: true },
   department_id: { type: String },
   designation_id: { type: String },
-  class: { type: String },
+  standard: { type: String },
   section: { type: String },
   school_roll_no: { type: String },
   admission_no: { type: String },
@@ -71,4 +76,8 @@ const userDetailsSchema = new mongoose.Schema({
   status: { type: String , required: true}
 }, { timestamps: true });
 
+userDetailsSchema.plugin(AutoIncrement, {
+  inc_field: 'sequenceNo',
+  id: 'userDetails_seq'
+});
 module.exports = mongoose.model('UserDetails', userDetailsSchema);
