@@ -1,7 +1,9 @@
 const UserDetails = require('../models/UserDetails');
 const fs = require('fs');
 const path = require('path');
+const jwt = require('jsonwebtoken');  
 const bcrypt = require('bcrypt'); 
+const User = require('../models/User');
 const get_all_data = async (req, res) => {
   try {
         const data = await UserDetails.find();
