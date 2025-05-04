@@ -66,21 +66,21 @@ const login = async (req, res) => {
         res.cookie("token", token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: "Lax",
+            sameSite: process.env.NODE_ENV === 'production'?"none":"Lax",
             maxAge: 24 * 60 * 60 * 1000 
         });
 
         res.cookie("UserId", user._id.toString(), {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: "Lax",
+            sameSite: process.env.NODE_ENV === 'production'?"none":"Lax",
             maxAge: 24 * 60 * 60 * 1000
         });
 
         res.cookie("remember_token", remember_token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: "Lax",
+            sameSite: process.env.NODE_ENV === 'production'?"none":"Lax",
             maxAge: 24 * 60 * 60 * 1000
         });
 
@@ -101,17 +101,17 @@ const logout = async (req, res) => {
         res.clearCookie("token", {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: "Lax"
+            sameSite: process.env.NODE_ENV === 'production'?"none":"Lax"
         });
         res.clearCookie("UserId", {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: "Lax"
+            sameSite: process.env.NODE_ENV === 'production'?"none":"Lax"
         });
         res.clearCookie("remember_token", {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: "Lax"
+            sameSite: process.env.NODE_ENV === 'production'?"none":"Lax"
         });
 
         const user = await User.findById(id);
