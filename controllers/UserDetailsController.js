@@ -1,6 +1,7 @@
 const UserDetails = require('../models/UserDetails');
 const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcrypt'); 
 const get_all_data = async (req, res) => {
   try {
         const data = await UserDetails.find();
