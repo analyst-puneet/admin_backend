@@ -20,7 +20,7 @@ const get_data = async (req, res) => {
 };
 
 const Create = async (req, res) => {
-  console.log(req.files);
+  console.log(req.file);
   try {
     const { cantact_no_1,email}= req.body;
     const created_by=req.cookies.UserId;
@@ -57,10 +57,10 @@ const Create = async (req, res) => {
         guardian_email: guardian_email??'',  guardian_relation: guardian_relation??'',
         current_address:current_address ??'',  current_city:current_city ??'',
         current_state: current_state??'',  current_country:current_country??'' ,
-        // current_pincode: current_pincode??'',  permanent_address: ??'',
+        current_pincode: current_pincode??'',  permanent_address: permanent_address??'',
         permanent_city:permanent_city??'' ,  permanent_state:permanent_state ??'',
         permanent_pincode:permanent_pincode ??'',  permanent_country: permanent_country??'',
-        gender: gender??'',  dob:dob ??'',
+        gender: gender??'',  dob:dob ??'',house_id:house_id??'',
         spouse_name:spouse_name ??'',  spouse_dob:spouse_dob ??'',
         marital_status:marital_status ??'',  no_of_children:no_of_children ??'',
         blood_group:blood_group ??'',  date_of_joining: date_of_joining??'',
@@ -75,7 +75,6 @@ const Create = async (req, res) => {
         standard: standard??'',  section:section ??'',
         school_roll_no:school_roll_no ??'',  admission_no:admission_no ??'',
         admission_date:admission_date ??'',  profile_photo_path:profile_photo_path ??'',
-        house_id:house_id??'',
         created_by: req.cookies.UserId??'',  deactivated: deactivated??'',
         deleted_on: deleted_on??'',  status: status??''
        })

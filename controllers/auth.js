@@ -1,6 +1,5 @@
 const User = require('../models/User');
-const jwt = require('jsonwebtoken'); 
-const bcrypt = require('bcrypt'); 
+const jwt = require('jsonwebtoken');  
 const crypto = require('crypto');
 
 const register = async (req, res) => {
@@ -67,21 +66,21 @@ const login = async (req, res) => {
         res.cookie("token", token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: "none",
+            sameSite: "Lax",
             maxAge: 24 * 60 * 60 * 1000 
         });
 
         res.cookie("UserId", user._id.toString(), {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: "none",
+            sameSite: "Lax",
             maxAge: 24 * 60 * 60 * 1000
         });
 
         res.cookie("remember_token", remember_token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: "none",
+            sameSite: "Lax",
             maxAge: 24 * 60 * 60 * 1000
         });
 
@@ -102,17 +101,17 @@ const logout = async (req, res) => {
         res.clearCookie("token", {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: "none"
+            sameSite: "Lax"
         });
         res.clearCookie("UserId", {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: "none"
+            sameSite: "Lax"
         });
         res.clearCookie("remember_token", {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: "none"
+            sameSite: "Lax"
         });
 
         const user = await User.findById(id);
