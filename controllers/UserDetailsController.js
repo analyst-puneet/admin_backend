@@ -1,6 +1,7 @@
 const UserDetails = require('../models/UserDetails');
 const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcrypt'); 
 const get_all_data = async (req, res) => {
   try {
         const data = await UserDetails.find();
@@ -22,17 +23,17 @@ const get_data = async (req, res) => {
 const Create = async (req, res) => {
   console.log(req.file);
   try {
-    const { cantact_no_1,email}= req.body;
+    const { contact_no_1,email}= req.body;
     const created_by=req.cookies.UserId;
-    const hashedPassword = await bcrypt.hash(cantact_no_1, 10);
+    const hashedPassword = await bcrypt.hash(contact_no_1, 10);
             const user = await User.create({
                 email:email,
-                username:cantact_no_1,
+                username:contact_no_1,
                 password: hashedPassword,
-                original_password: cantact_no_1,
+                original_password: contact_no_1,
                 created_by: created_by
             });
-       const { first_name,middle_name,last_name,full_name,alt_email,cantact_no_2,father_name,
+       const { first_name,middle_name,last_name,full_name,alt_email,contact_no_2,father_name,
         father_contact_no,father_dob,father_email,mother_name,mother_contact_no,mother_dob,
         mother_email,guardian_name,guardian_contact_no,guardian_dob,guardian_email,guardian_relation,
         current_address,current_city,current_state,current_country,current_pincode,permanent_city,
@@ -47,8 +48,8 @@ const Create = async (req, res) => {
         user_id:user.sequenceNo ,        first_name: first_name??'',
         middle_name: middle_name??'',  last_name: last_name??'',
         full_name: full_name??'',  email: email??'',
-        alt_email: alt_email??'',  contact_no_1:cantact_no_1??'' ,
-        contact_no_2: cantact_no_2??'',  father_name:father_name ??'',
+        alt_email: alt_email??'',  contact_no_1:contact_no_1??'' ,
+        contact_no_2: contact_no_2??'',  father_name:father_name ??'',
         father_contact_no: father_contact_no??'',  father_dob: father_dob??'',
         father_email:father_email ??'',  mother_name:mother_name??'' ,
         mother_contact_no: mother_contact_no??'',  mother_dob:mother_dob ??'',
