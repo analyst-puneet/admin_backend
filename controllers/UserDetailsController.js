@@ -107,9 +107,9 @@ const savedFilePaths = {};
         marksheets.push(file.filename);
       }
     });
-
+    // console.log( userRecord.sequenceNo);
     educationDocs.push({
-      user_id: userRecord.sequenceNo,
+      user_id: String(userRecord.sequenceNo),
       education_type_id: edu.qualification ?? '',
       board_name_university: edu.board ?? edu.institution ?? '',
       year_of_passing: edu.year ?? '',
@@ -126,10 +126,10 @@ const { first_name,middle_name,last_name,full_name,alt_email,contact_no_2,father
         permanent_state,permanent_pincode,permanent_country,gender,dob,spouse_name,spouse_dob,marital_status,
         no_of_children,blood_group,date_of_joining,date_of_resignation,leaving_date,employee_type,
         employee_code,tax_region,bank_name,bank_acc_no,ifsc_code,branch_address,UAN_no,PF_no,esic_no,
-        category,religion,department_id,designation_id,standard,section,school_roll_no,admission_no,admission_date,
-        profile_photo_path,house_id,deactivated,deleted_on,status
+        category,religion,department_id,designation_id,standard,section,school_roll_no,admission_no,admission_date,permanent_address
+        ,profile_photo_path,house_id,deactivated,deleted_on,status
        }=req.body;
-console.log(savedFilePaths);
+// console.log(savedFilePaths);
   // 5. Save user details
   const detailsPayload = {
     first_name: first_name??'',
@@ -145,7 +145,7 @@ console.log(savedFilePaths);
         guardian_email: guardian_email??'',  guardian_relation: guardian_relation??'',
         current_address:current_address ??'',  current_city:current_city ??'',
         current_state: current_state??'',  current_country:current_country??'' ,
-        // current_pincode: current_pincode??'',  permanent_address: ??'',
+        current_pincode: current_pincode??'',  permanent_address:permanent_address ??'',
         permanent_city:permanent_city??'' ,  permanent_state:permanent_state ??'',
         permanent_pincode:permanent_pincode ??'',  permanent_country: permanent_country??'',
         gender: gender??'',  dob:dob ??'',
@@ -162,7 +162,7 @@ console.log(savedFilePaths);
         department_id:department_id ??'',  designation_id: designation_id??'',
         standard: standard??'',  section:section ??'',
         school_roll_no:school_roll_no ??'',  admission_no:admission_no ??'',
-        admission_date:admission_date ??'',  profile_photo_path:'',
+        admission_date:admission_date ??'',  profile_photo_path:profile_photo_path??'',
         house_id:house_id??'', deactivated: deactivated??'',
         deleted_on: deleted_on??'',  status: status??'',
     user_id: userRecord.sequenceNo,
@@ -172,22 +172,23 @@ console.log(savedFilePaths);
   await UserDetails.create([detailsPayload], { session });
 
   // 6. Save education qualifications
-  if (educationDocs.length) {
-    await UserQualification.insertMany(educationDocs, { session });
-  }
+ for (const doc of educationDocs) {
+  const qualification = new UserQualification(doc);
+  await qualification.save({ session });
+}
   // 7. Save document paths
   await UserDocuments.create(
     [
       {
         user_id: userRecord.sequenceNo,
-        aadhar_card_front: savedFilePaths.aadharFront || '',
-        aadhar_card_back: savedFilePaths.aadharBack || '',
-        aadhar_card_no: req.body.adhar_no ?? '',
-        pan_card_no: req.body.pan_no ?? '',
-        pan_card: savedFilePaths.panCard || '',
+        resume: savedFilePaths.resume || '',
         joining_letter: savedFilePaths.joiningLetter || '',
         offer_letter: savedFilePaths.offerletter || '',
-        resume: savedFilePaths.resume || '',
+        aadhar_card_no: req.body.adhar_no ?? '',
+        aadhar_card_front: savedFilePaths.aadharFront || '',
+        aadhar_card_back: savedFilePaths.aadharBack || '',
+        pan_card_no: req.body.pan_no ?? '',
+        pan_card: savedFilePaths.panCard || '',
       },
     ],
     { session }
@@ -197,41 +198,50 @@ console.log(savedFilePaths);
   session.endSession();
   res.status(201).json({ message: 'User created successfully' });
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
+  await session.abortTransaction();
+  session.endSession();
+
+  // Mongoose validation error
+  if (error.name === 'ValidationError') {
     const fieldMessages = {};
-    if (error.name === 'ValidationError') {
-      const errorFields = Object.keys(error.errors);
-      const schemaPaths = UserDetails.schema.paths;
-      for (let field in schemaPaths) {
-        const schemaType = schemaPaths[field].instance;
-        if (field === '__v' || field === '_id') continue;
-        if (errorFields.includes(field)) {
-          fieldMessages[field] = [
-            'This field is required.',
-            'You missed this field.'
-          ];
-        } else if (Object.prototype.hasOwnProperty.call(req.body, field)) {
-          fieldMessages[field] = [`This field should be of type: ${schemaType}`];
-        } else if (schemaPaths[field].isRequired) {
-          fieldMessages[field] = [
-            'This field is required.',
-            'You missed this field.'
-          ];
-        } else {
-          fieldMessages[field] = [`This field should be of type: ${schemaType}`];
-        }
-      }
-      return res.status(400).json({
-        message: 'Validation failed',
-        fields: fieldMessages
-      });
+
+    for (const [field, errDetail] of Object.entries(error.errors)) {
+      // Extract path, kind, and message from each validation error
+      const path = errDetail.path || field;
+      const kind = errDetail.kind || 'Invalid';
+      const message = errDetail.message || `Validation failed for ${field}`;
+      
+      fieldMessages[path] = [
+        `${message}`,
+        `Expected type: ${kind}`
+      ];
     }
-    res.status(500).json({
-      message: 'Something went wrong',
-      error: error.message
+
+    return res.status(400).json({
+      message: 'Validation failed',
+      fields: fieldMessages,
     });
   }
+
+  // MongoDB duplicate key error (like sequenceNo or user_id conflict)
+  if (error.code === 11000) {
+    const dupField = Object.keys(error.keyValue || {}).join(', ');
+    return res.status(400).json({
+      message: 'Duplicate key error',
+      field: dupField,
+      value: error.keyValue[dupField],
+      hint: `The value for '${dupField}' must be unique.`,
+    });
+  }
+
+  // Generic error fallback
+  console.error('Unexpected error:', error);
+  return res.status(500).json({
+    message: 'Something went wrong',
+    error: error.message,
+    stack: error.stack // Optional: remove in production
+  });
+}
 };
 
 
