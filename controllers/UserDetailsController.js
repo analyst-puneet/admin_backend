@@ -1,4 +1,3 @@
-// Added import for User model
 const UserDetails = require('../models/UserDetails');
 const mongoose = require('mongoose');
 const UserDocuments = require('../models/UserDocuments');
@@ -7,7 +6,13 @@ const User = require('../models/User');
 const bcrypt = require('bcrypt');
 const fs = require('fs');
 const path = require('path');
-const jwt = require('jsonwebtoken');  
+const jwt = require('jsonwebtoken');
+
+// Helper function to generate random username
+const generateUsername = () => {
+  return `user_${Math.random().toString(36).substring(2, 9)}_${Date.now().toString(36)}`;
+};
+
 const get_all_data = async (req, res) => {
   try {
     const data = await UserDetails.find();
@@ -16,8 +21,8 @@ const get_all_data = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 const get_data = async (req, res) => {
-  // Extract id from req.params correctly
   const { id } = req.params;
   try {
     const data = await UserDetails.findOne({ _id: id });
@@ -27,21 +32,61 @@ const get_data = async (req, res) => {
   }
 };
 
-// Change saved file paths to relative paths for DB storage
-
-
 const Create = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
-   const { contact_no_1, email } = req.body;
-  const created_by = req.cookies.UserId;
-  const hashedPassword = await bcrypt.hash(contact_no_1, 10);
+    // 1. Check authentication tokens
+    const token = req.cookies.token;
+    const userId = req.cookies.UserId;
+    const rememberToken = req.cookies.remember_token;
 
-  // 1. Create User
-  const user = await User.create(
-    [
+    if (!token || !userId || !rememberToken) {
+      return res.status(401).json({ message: 'Unauthorized: Missing authentication tokens' });
+    }
+
+    // 2. Validate required fields
+    const requiredFields = [
+      'contact_no_1', 'email', 'first_name', 'last_name', 
+      'gender', 'dob', 'current_address', 'current_city',
+      'current_state', 'current_pincode', 'permanent_address',
+      'permanent_city', 'permanent_state', 'permanent_pincode'
+    ];
+
+    const missingFields = requiredFields.filter(field => !req.body[field]);
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        message: 'Missing required fields',
+        missingFields: missingFields.map(field => ({
+          field,
+          message: `${field} is required`
+        }))
+      });
+    }
+
+    const { contact_no_1, email } = req.body;
+    const created_by = userId;
+
+    // 3. Validate contact_no_1 format
+    if (!/^\d{10}$/.test(contact_no_1)) {
+      return res.status(400).json({
+        message: 'Invalid contact number',
+        field: 'contact_no_1',
+        hint: 'Contact number must be 10 digits'
+      });
+    }
+
+    // 4. Validate email format
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({
+        message: 'Invalid email format',
+        field: 'email'
+      });
+    }
+
+    // 5. Hash password
+    const hashedPassword = await bcrypt.hash(contact_no_1, 10);
+
+    // 6. Create User
+    const user = await User.create([
       {
         email,
         username: contact_no_1,
@@ -49,206 +94,273 @@ const Create = async (req, res) => {
         original_password: contact_no_1,
         created_by,
       },
-    ],
-    { session }
-  );
-  const userRecord = user[0];
+    ]);
+    const userRecord = user[0];
 
-  // 2. Define document directory (already used by multer)
-  const uploadsDir = path.join(__dirname, '..', 'public');
+    // 7. Process file uploads - Improved document handling
+    const documentFields = {
+      resume: '',
+      joiningLetter: '',
+      offerletter: '',
+      aadharFront: '',
+      aadharBack: '',
+      panCard: ''
+    };
 
-  // 3. Process known flat file fields
-const fileFields = [
-  'aadharFront',
-  'aadharBack',
-  'panCard',
-  'resume',
-  'joiningLetter',
-  'offerletter',
-];
-const savedFilePaths = {};
+    // Process all uploaded files
+    if (req.files) {
+      // Convert files to array format if needed
+      const filesArray = Array.isArray(req.files) ? req.files : Object.values(req.files);
+      
+      filesArray.forEach((file) => {
+        // Case 1: Direct field names (e.g., name="resume")
+        if (documentFields.hasOwnProperty(file.fieldname)) {
+          documentFields[file.fieldname] = `documents/${file.filename}`;
+          return;
+        }
 
-(req.files || []).forEach((file) => {
-  // Match field like: documents[2][resume]
-  const match = file.fieldname.match(/^documents\[\d+]\[([^\]]+)]$/);
-  if (match) {
-    const key = match[1]; // resume, joiningLetter, etc.
-    if (fileFields.includes(key)) {
-      savedFilePaths[key] = `documents/${file.filename}`;
+        // Case 2: documents[0][fieldname] format (e.g., name="documents[0][aadharFront]")
+        const arrayMatch = file.fieldname.match(/^documents\[(\d+)\]\[([^\]]+)\]$/);
+        if (arrayMatch && documentFields.hasOwnProperty(arrayMatch[2])) {
+          documentFields[arrayMatch[2]] = `documents/${file.filename}`;
+          return;
+        }
+
+        // Case 3: Alternative format (if any)
+        const altMatch = file.fieldname.match(/^([a-zA-Z0-9]+)$/);
+        if (altMatch && documentFields.hasOwnProperty(altMatch[1])) {
+          documentFields[altMatch[1]] = `documents/${file.filename}`;
+        }
+      });
+
+      console.log('Processed document paths:', documentFields);
     }
-  }
-});
 
-  // 4. Parse and process education details and marksheets
-  let eduDetails = req.body.eduDetails;
-  if (typeof eduDetails === 'string') eduDetails = JSON.parse(eduDetails);
-  const educationDocs = [];
+    // 8. Process education details (unchanged)
+    let eduDetails = req.body.eduDetails || [];
+    if (typeof eduDetails === 'string') {
+      try {
+        eduDetails = JSON.parse(eduDetails);
+      } catch (e) {
+        eduDetails = [];
+      }
+    }
 
-  for (let i = 0; i < eduDetails.length; i++) {
-    const edu = eduDetails[i];
-    let marksheet_filePath = '';
-    const marksheets = [];
+    const educationDocs = [];
+    const educationTypeMap = {
+      '10th': 'Secondary',
+      '12th': 'Higher Secondary',
+      'UG': 'Undergraduate',
+      'PG': 'Postgraduate',
+      'PhD': 'Doctorate'
+    };
 
-    (req.files || []).forEach((file) => {
-      const matchSingle = file.fieldname.match(
-        /^documents\[(\d+)]\[files]\[0]\[filename]$/
-      );
-      const matchMulti = file.fieldname.match(
-        /^documents\[(\d+)]\[files]\[(\d+)]\[filename]$/
-      );
-
-      // Handle single marksheet
-      if (matchSingle && parseInt(matchSingle[1]) === i) {
-        marksheet_filePath = file.filename;
+    // Process each education entry
+    for (let i = 0; i < eduDetails.length; i++) {
+      const edu = eduDetails[i];
+      
+      // Initialize file paths
+      let marksheetPath = '';
+      let certificatePath = '';
+      
+      // Handle different education types
+      switch (edu.qualification) {
+        case '10th':
+        case '12th':
+          // Process marksheet and certificate files
+          (req.files || []).forEach(file => {
+            if (file.fieldname === `eduDetails[${i}][marksheet]`) {
+              marksheetPath = file.filename;
+            }
+            if (file.fieldname === `eduDetails[${i}][certificate]`) {
+              certificatePath = file.filename;
+            }
+          });
+          break;
+          
+        case 'UG':
+        case 'PG':
+          // Process multiple marksheets
+          const marksheets = [];
+          (req.files || []).forEach(file => {
+            const marksheetRegex = new RegExp(`^eduDetails\\[${i}\\]\\[marksheets\\]\\[\\d+\\]\\[filename\\]$`);
+            if (marksheetRegex.test(file.fieldname)) {
+              marksheets.push(file.filename);
+            }
+          });
+          marksheetPath = marksheets.join(',');
+          break;
+          
+        case 'PhD':
+          // Process PhD certificate
+          (req.files || []).forEach(file => {
+            if (file.fieldname === `eduDetails[${i}][certificate]`) {
+              certificatePath = file.filename;
+            }
+          });
+          break;
       }
 
-      // Handle multiple marksheets
-      if (matchMulti && parseInt(matchMulti[1]) === i) {
-        marksheets.push(file.filename);
+      // Prepare education document
+      const educationDoc = {
+        user_id: String(userRecord.sequenceNo),
+        education_type_id: educationTypeMap[edu.qualification] || edu.qualification,
+        board_name_university: edu.board || edu.institution || '',
+        year_of_passing: edu.year || '',
+        percentage_sgpa: edu.percentage || '',
+        marksheet: marksheetPath,
+        certificate: certificatePath,
+      };
+
+      // Add additional fields based on qualification type
+      if (edu.qualification === 'UG' || edu.qualification === 'PG') {
+        educationDoc.course = edu.course || '';
+        educationDoc.duration = edu.duration || '';
+      } else if (edu.qualification === 'PhD') {
+        educationDoc.subject = edu.subject || '';
+        educationDoc.thesis = edu.thesis || '';
       }
-    });
-    // console.log( userRecord.sequenceNo);
-    educationDocs.push({
-      user_id: String(userRecord.sequenceNo),
-      education_type_id: edu.qualification ?? '',
-      board_name_university: edu.board ?? edu.institution ?? '',
-      year_of_passing: edu.year ?? '',
-      percentage_sgpa: edu.percentage ?? '',
-      marksheet: marksheet_filePath || marksheets.join(','),
-      certificate: '',
-    });
-  }
-// console.log(educationDocs);
-const { first_name,middle_name,last_name,full_name,alt_email,contact_no_2,father_name,
-        father_contact_no,father_dob,father_email,mother_name,mother_contact_no,mother_dob,
-        mother_email,guardian_name,guardian_contact_no,guardian_dob,guardian_email,guardian_relation,
-        current_address,current_city,current_state,current_country,current_pincode,permanent_city,
-        permanent_state,permanent_pincode,permanent_country,gender,dob,spouse_name,spouse_dob,marital_status,
-        no_of_children,blood_group,date_of_joining,date_of_resignation,leaving_date,employee_type,
-        employee_code,tax_region,bank_name,bank_acc_no,ifsc_code,branch_address,UAN_no,PF_no,esic_no,
-        category,religion,department_id,designation_id,standard,section,school_roll_no,admission_no,admission_date,permanent_address
-        ,profile_photo_path,house_id,deactivated,deleted_on,status
-       }=req.body;
-// console.log(savedFilePaths);
-  // 5. Save user details
-  const detailsPayload = {
-    first_name: first_name??'',
-        middle_name: middle_name??'',  last_name: last_name??'',
-        full_name: full_name??'',  email: email??'',
-        alt_email: alt_email??'',  contact_no_1:contact_no_1??'' ,
-        contact_no_2: contact_no_2??'',  father_name:father_name ??'',
-        father_contact_no: father_contact_no??'',  father_dob: father_dob??'',
-        father_email:father_email ??'',  mother_name:mother_name??'' ,
-        mother_contact_no: mother_contact_no??'',  mother_dob:mother_dob ??'',
-        mother_email:mother_email ??'',  guardian_name:guardian_name ??'',
-        guardian_contact_no: guardian_contact_no??'',  guardian_dob: guardian_dob??'',
-        guardian_email: guardian_email??'',  guardian_relation: guardian_relation??'',
-        current_address:current_address ??'',  current_city:current_city ??'',
-        current_state: current_state??'',  current_country:current_country??'' ,
-        current_pincode: current_pincode??'',  permanent_address:permanent_address ??'',
-        permanent_city:permanent_city??'' ,  permanent_state:permanent_state ??'',
-        permanent_pincode:permanent_pincode ??'',  permanent_country: permanent_country??'',
-        gender: gender??'',  dob:dob ??'',
-        spouse_name:spouse_name ??'',  spouse_dob:spouse_dob ??'',
-        marital_status:marital_status ??'',  no_of_children:no_of_children ??'',
-        blood_group:blood_group ??'',  date_of_joining: date_of_joining??'',
-        date_of_resignation: date_of_resignation??'',  leaving_date:leaving_date??'' ,
-        employee_type:employee_type ??'',  employee_code: employee_code??'',
-        tax_region:tax_region ??'',  bank_name:bank_name ??'',
-        bank_acc_no:bank_acc_no ??'',  ifsc_code:ifsc_code ??'',
-        branch_address:branch_address ??'',  UAN_no:UAN_no ??'',
-        PF_no:PF_no ??'',  esic_no: esic_no??'',
-        category:category??'',  religion:religion??'' ,
-        department_id:department_id ??'',  designation_id: designation_id??'',
-        standard: standard??'',  section:section ??'',
-        school_roll_no:school_roll_no ??'',  admission_no:admission_no ??'',
-        admission_date:admission_date ??'',  profile_photo_path:profile_photo_path??'',
-        house_id:house_id??'', deactivated: deactivated??'',
-        deleted_on: deleted_on??'',  status: status??'',
-    user_id: userRecord.sequenceNo,
-    created_by,
-  };
 
-  await UserDetails.create([detailsPayload], { session });
+      educationDocs.push(educationDoc);
+    }
 
-  // 6. Save education qualifications
- for (const doc of educationDocs) {
-  const qualification = new UserQualification(doc);
-  await qualification.save({ session });
-}
-  // 7. Save document paths
-  await UserDocuments.create(
-    [
+    // 9. Save user details (unchanged)
+    const detailsPayload = {
+      first_name: req.body.first_name,
+      middle_name: req.body.middle_name || '',
+      last_name: req.body.last_name,
+      full_name: req.body.full_name || '',
+      email: email,
+      alt_email: req.body.alt_email || '',
+      contact_no_1: contact_no_1,
+      contact_no_2: req.body.contact_no_2 || '',
+      father_name: req.body.father_name || '',
+      father_contact_no: req.body.father_contact_no || '',
+      father_dob: req.body.father_dob || '',
+      father_email: req.body.father_email || '',
+      mother_name: req.body.mother_name || '',
+      mother_contact_no: req.body.mother_contact_no || '',
+      mother_dob: req.body.mother_dob || '',
+      mother_email: req.body.mother_email || '',
+      guardian_name: req.body.guardian_name || '',
+      guardian_contact_no: req.body.guardian_contact_no || '',
+      guardian_dob: req.body.guardian_dob || '',
+      guardian_email: req.body.guardian_email || '',
+      guardian_relation: req.body.guardian_relation || '',
+      current_address: req.body.current_address,
+      current_city: req.body.current_city,
+      current_state: req.body.current_state,
+      current_country: req.body.current_country || '',
+      current_pincode: req.body.current_pincode,
+      permanent_address: req.body.permanent_address,
+      permanent_city: req.body.permanent_city,
+      permanent_state: req.body.permanent_state,
+      permanent_pincode: req.body.permanent_pincode,
+      permanent_country: req.body.permanent_country || '',
+      gender: req.body.gender,
+      dob: req.body.dob,
+      spouse_name: req.body.spouse_name || '',
+      spouse_dob: req.body.spouse_dob || '',
+      marital_status: req.body.marital_status || '',
+      no_of_children: req.body.no_of_children || '',
+      blood_group: req.body.blood_group || '',
+      date_of_joining: req.body.date_of_joining || '',
+      date_of_resignation: req.body.date_of_resignation || '',
+      leaving_date: req.body.leaving_date || '',
+      employee_type: req.body.employee_type || '',
+      employee_code: req.body.employee_code || '',
+      tax_region: req.body.tax_region || '',
+      bank_name: req.body.bank_name || '',
+      bank_acc_no: req.body.bank_acc_no || '',
+      ifsc_code: req.body.ifsc_code || '',
+      branch_address: req.body.branch_address || '',
+      UAN_no: req.body.UAN_no || '',
+      PF_no: req.body.PF_no || '',
+      esic_no: req.body.esic_no || '',
+      category: req.body.category || '',
+      religion: req.body.religion || '',
+      department_id: req.body.department_id || '',
+      designation_id: req.body.designation_id || '',
+      standard: req.body.standard || '',
+      section: req.body.section || '',
+      school_roll_no: req.body.school_roll_no || '',
+      admission_no: req.body.admission_no || '',
+      admission_date: req.body.admission_date || '',
+      profile_photo_path: req.body.profile_photo_path || '',
+      house_id: req.body.house_id || '',
+      deactivated: req.body.deactivated || true,
+      deleted_on: req.body.deleted_on || '',
+      status: req.body.status || '',
+      user_id: userRecord.sequenceNo,
+      created_by,
+    };
+
+    await UserDetails.create([detailsPayload]);
+
+    // 10. Save education qualifications
+    for (const doc of educationDocs) {
+      const qualification = new UserQualification(doc);
+      await qualification.save();
+    }
+
+    // 11. Save document paths - Improved with proper field mapping
+    await UserDocuments.create([
       {
         user_id: userRecord.sequenceNo,
-        resume: savedFilePaths.resume || '',
-        joining_letter: savedFilePaths.joiningLetter || '',
-        offer_letter: savedFilePaths.offerletter || '',
-        aadhar_card_no: req.body.adhar_no ?? '',
-        aadhar_card_front: savedFilePaths.aadharFront || '',
-        aadhar_card_back: savedFilePaths.aadharBack || '',
-        pan_card_no: req.body.pan_no ?? '',
-        pan_card: savedFilePaths.panCard || '',
+        resume: documentFields.resume,
+        joining_letter: documentFields.joiningLetter,
+        offer_letter: documentFields.offerletter,
+        aadhar_card_no: req.body.adhar_no || '',
+        aadhar_card_front: documentFields.aadharFront,
+        aadhar_card_back: documentFields.aadharBack,
+        pan_card_no: req.body.pan_no || '',
+        pan_card: documentFields.panCard,
+        created_by: userId
       },
-    ],
-    { session }
-  );
+    ]);
 
-  await session.commitTransaction();
-  session.endSession();
-  res.status(201).json({ message: 'User created successfully' });
+    res.status(201).json({ 
+      message: 'User created successfully',
+      userId: userRecord.sequenceNo,
+      documents: documentFields, // Include document paths in response
+      educationDetails: educationDocs
+    });
+    
   } catch (error) {
-  await session.abortTransaction();
-  session.endSession();
-
-  // Mongoose validation error
-  if (error.name === 'ValidationError') {
-    const fieldMessages = {};
-
-    for (const [field, errDetail] of Object.entries(error.errors)) {
-      // Extract path, kind, and message from each validation error
-      const path = errDetail.path || field;
-      const kind = errDetail.kind || 'Invalid';
-      const message = errDetail.message || `Validation failed for ${field}`;
-      
-      fieldMessages[path] = [
-        `${message}`,
-        `Expected type: ${kind}`
-      ];
+    console.error('Error in Create:', error);
+    
+    if (error.name === 'ValidationError') {
+      const errors = {};
+      for (const field in error.errors) {
+        errors[field] = error.errors[field].message;
+      }
+      return res.status(400).json({
+        message: 'Validation failed',
+        errors,
+        errorDetails: error
+      });
     }
 
-    return res.status(400).json({
-      message: 'Validation failed',
-      fields: fieldMessages,
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyValue)[0];
+      return res.status(400).json({
+        message: 'Duplicate field value',
+        field,
+        value: error.keyValue[field],
+        errorCode: error.code
+      });
+    }
+
+    res.status(500).json({
+      message: 'Internal server error',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
-
-  // MongoDB duplicate key error (like sequenceNo or user_id conflict)
-  if (error.code === 11000) {
-    const dupField = Object.keys(error.keyValue || {}).join(', ');
-    return res.status(400).json({
-      message: 'Duplicate key error',
-      field: dupField,
-      value: error.keyValue[dupField],
-      hint: `The value for '${dupField}' must be unique.`,
-    });
-  }
-
-  // Generic error fallback
-  console.error('Unexpected error:', error);
-  return res.status(500).json({
-    message: 'Something went wrong',
-    error: error.message,
-    stack: error.stack // Optional: remove in production
-  });
-}
 };
-
-
 
 const Update = async (req, res) => {
   const { id } = req.params;
-
   try {
     const updatedData = await UserDetails.findByIdAndUpdate(id, req.body, {
       new: true,
@@ -261,17 +373,14 @@ const Update = async (req, res) => {
     }
 
     res.status(200).json(updatedData);
-
   } catch (error) {
     const fieldMessages = {};
-
     if (error.name === 'ValidationError') {
       const errorFields = Object.keys(error.errors);
       const schemaPaths = UserDetails.schema.paths;
 
       for (let field in schemaPaths) {
         const schemaType = schemaPaths[field].instance;
-
         if (field === '__v' || field === '_id') continue;
 
         if (errorFields.includes(field)) {
@@ -303,7 +412,6 @@ const Update = async (req, res) => {
     });
   }
 };
-
 
 const Delete = async (req, res) => {
   const { id } = req.params;
