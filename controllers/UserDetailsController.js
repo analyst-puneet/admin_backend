@@ -45,7 +45,7 @@ const Create = async (req, res) => {
 
     // 2. Validate required fields
     const requiredFields = [
-      'contact_no_1', 'email', 'first_name', 'last_name', 
+      'contact_no_1', 'email', 'first_name',  
       'gender', 'dob', 'current_address', 'current_city',
       'current_state', 'current_pincode', 'permanent_address',
       'permanent_city', 'permanent_state', 'permanent_pincode'
