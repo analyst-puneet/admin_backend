@@ -31,12 +31,12 @@ app.use(cors({
 }));
 app.use('/api/auth', authRoutes);
 app.use('/api/master',validate_request,masterRoutes);
-app.use('/api/user_details',userDetailsRoutes);
+app.use('/api/user_details',validate_request,userDetailsRoutes);
 app.use('/api/leave_group', leaveGroupMastRoutes);
 const PORT = process.env.PORT || 5000;
 app.get('/', (req, res) => {
     res.send('Welcome to Node.js and MongoDB backend');
 });
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`Server is running http://localhost:${PORT}`);
 });

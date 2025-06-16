@@ -7,12 +7,12 @@ const userQualificationSchema = new mongoose.Schema({
     unique: true
   },
    user_id: { type: String, required: true },
-  education_type_id: { type: String, required: true },
+  // education_type_id: { type: String, required: true },
 
   board_name_university: { type: String, required: true },
-  year_of_passing: { type: Number, required: true },
-  percentage_sgpa: { type: Number, required: true },
-  marksheet: { type: String, required: true }, // file 
+  year_of_passing: { type: String, required: true },
+  percentage_sgpa: { type: String, required: true },
+  marksheet: { type: String }, // file 
   certificate: { type: String }, //  file 
 }, { timestamps: true });
 
