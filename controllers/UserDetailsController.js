@@ -43,7 +43,19 @@ const Create = async (req, res) => {
       return res.status(401).json({ message: 'Unauthorized: Missing authentication tokens' });
     }
 
-    // 2. Validate required fields
+    // 2. Parse the request body (handling both form-data and JSON)
+    let bodyData = {};
+    if (req.body.data) {
+      try {
+        bodyData = JSON.parse(req.body.data);
+      } catch (e) {
+        bodyData = req.body;
+      }
+    } else {
+      bodyData = req.body;
+    }
+
+    // 3. Validate required fields
     const requiredFields = [
       'contact_no_1', 'email', 'first_name',  
       'gender', 'dob', 'current_address', 'current_city',
@@ -51,7 +63,7 @@ const Create = async (req, res) => {
       'permanent_city', 'permanent_state', 'permanent_pincode'
     ];
 
-    const missingFields = requiredFields.filter(field => !req.body[field]);
+    const missingFields = requiredFields.filter(field => !bodyData[field]);
     if (missingFields.length > 0) {
       return res.status(400).json({
         message: 'Missing required fields',
@@ -62,10 +74,10 @@ const Create = async (req, res) => {
       });
     }
 
-    const { contact_no_1, email } = req.body;
+    const { contact_no_1, email } = bodyData;
     const created_by = userId;
 
-    // 3. Validate contact_no_1 format
+    // 4. Validate contact_no_1 format
     if (!/^\d{10}$/.test(contact_no_1)) {
       return res.status(400).json({
         message: 'Invalid contact number',
@@ -74,7 +86,7 @@ const Create = async (req, res) => {
       });
     }
 
-    // 4. Validate email format
+    // 5. Validate email format
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({
         message: 'Invalid email format',
@@ -82,10 +94,10 @@ const Create = async (req, res) => {
       });
     }
 
-    // 5. Hash password
+    // 6. Hash password
     const hashedPassword = await bcrypt.hash(contact_no_1, 10);
 
-    // 6. Create User
+    // 7. Create User
     const user = await User.create([
       {
         email,
@@ -97,14 +109,20 @@ const Create = async (req, res) => {
     ]);
     const userRecord = user[0];
 
-    // 7. Process file uploads - Improved document handling
+    // 8. Process file uploads - Enhanced document handling
     const documentFields = {
       resume: '',
       joiningLetter: '',
-      offerletter: '',
+      offerLetter: '',
       aadharFront: '',
       aadharBack: '',
-      panCard: ''
+      panCard: '',
+      tenthMarksheet: '',
+      twelfthMarksheet: '',
+      ugMarksheets: [],
+      pgMarksheets: [],
+      phdCertificate: '',
+      otherDocuments: []
     };
 
     // Process all uploaded files
@@ -113,37 +131,49 @@ const Create = async (req, res) => {
       const filesArray = Array.isArray(req.files) ? req.files : Object.values(req.files);
       
       filesArray.forEach((file) => {
-        // Case 1: Direct field names (e.g., name="resume")
-        if (documentFields.hasOwnProperty(file.fieldname)) {
-          documentFields[file.fieldname] = `documents/${file.filename}`;
-          return;
+        // Handle direct document uploads
+        if (file.fieldname === 'resume') documentFields.resume = file.filename;
+        else if (file.fieldname === 'joiningLetter') documentFields.joiningLetter = file.filename;
+        else if (file.fieldname === 'offerLetter') documentFields.offerLetter = file.filename;
+        else if (file.fieldname === 'aadharFront') documentFields.aadharFront = file.filename;
+        else if (file.fieldname === 'aadharBack') documentFields.aadharBack = file.filename;
+        else if (file.fieldname === 'panCard') documentFields.panCard = file.filename;
+        
+        // Handle education document uploads
+        else if (file.fieldname === 'tenthMarksheet') documentFields.tenthMarksheet = file.filename;
+        else if (file.fieldname === 'twelfthMarksheet') documentFields.twelfthMarksheet = file.filename;
+        else if (file.fieldname === 'phdCertificate') documentFields.phdCertificate = file.filename;
+        
+        // Handle UG marksheets (ugYear1, ugYear2, etc.)
+        else if (file.fieldname.startsWith('ugYear')) {
+          const year = parseInt(file.fieldname.replace('ugYear', ''));
+          documentFields.ugMarksheets[year-1] = file.filename;
+        }
+        
+        // Handle PG marksheets
+        else if (file.fieldname.startsWith('pgMarksheet')) {
+          const index = parseInt(file.fieldname.replace('pgMarksheet', '')) - 1;
+          documentFields.pgMarksheets[index] = file.filename;
         }
 
-        // Case 2: documents[0][fieldname] format (e.g., name="documents[0][aadharFront]")
-        const arrayMatch = file.fieldname.match(/^documents\[(\d+)\]\[([^\]]+)\]$/);
-        if (arrayMatch && documentFields.hasOwnProperty(arrayMatch[2])) {
-          documentFields[arrayMatch[2]] = `documents/${file.filename}`;
-          return;
-        }
-
-        // Case 3: Alternative format (if any)
-        const altMatch = file.fieldname.match(/^([a-zA-Z0-9]+)$/);
-        if (altMatch && documentFields.hasOwnProperty(altMatch[1])) {
-          documentFields[altMatch[1]] = `documents/${file.filename}`;
+        // Handle other documents
+        else if (file.fieldname === 'otherDocuments') {
+          documentFields.otherDocuments.push(file.filename);
         }
       });
-
-      console.log('Processed document paths:', documentFields);
     }
 
-    // 8. Process education details (unchanged)
-    let eduDetails = req.body.eduDetails || [];
-    if (typeof eduDetails === 'string') {
-      try {
-        eduDetails = JSON.parse(eduDetails);
-      } catch (e) {
-        eduDetails = [];
-      }
+    // 9. Process education details - Enhanced parsing
+    let eduDetails = [];
+    try {
+      eduDetails = Array.isArray(bodyData.eduDetails) 
+        ? bodyData.eduDetails 
+        : typeof bodyData.eduDetails === 'string' 
+          ? JSON.parse(bodyData.eduDetails) 
+          : [];
+    } catch (e) {
+      console.error('Error parsing education details:', e);
+      eduDetails = [];
     }
 
     const educationDocs = [];
@@ -156,179 +186,230 @@ const Create = async (req, res) => {
     };
 
     // Process each education entry
-    for (let i = 0; i < eduDetails.length; i++) {
-      const edu = eduDetails[i];
-      
-      // Initialize file paths
-      let marksheetPath = '';
-      let certificatePath = '';
-      
-      // Handle different education types
-      switch (edu.qualification) {
-        case '10th':
-        case '12th':
-          // Process marksheet and certificate files
-          (req.files || []).forEach(file => {
-            if (file.fieldname === `eduDetails[${i}][marksheet]`) {
-              marksheetPath = file.filename;
-            }
-            if (file.fieldname === `eduDetails[${i}][certificate]`) {
-              certificatePath = file.filename;
-            }
-          });
-          break;
-          
-        case 'UG':
-        case 'PG':
-          // Process multiple marksheets
-          const marksheets = [];
-          (req.files || []).forEach(file => {
-            const marksheetRegex = new RegExp(`^eduDetails\\[${i}\\]\\[marksheets\\]\\[\\d+\\]\\[filename\\]$`);
-            if (marksheetRegex.test(file.fieldname)) {
-              marksheets.push(file.filename);
-            }
-          });
-          marksheetPath = marksheets.join(',');
-          break;
-          
-        case 'PhD':
-          // Process PhD certificate
-          (req.files || []).forEach(file => {
-            if (file.fieldname === `eduDetails[${i}][certificate]`) {
-              certificatePath = file.filename;
-            }
-          });
-          break;
-      }
+    for (const edu of eduDetails) {
+      if (!edu || !edu.qualification) continue;
 
-      // Prepare education document
       const educationDoc = {
         user_id: String(userRecord.sequenceNo),
         education_type_id: educationTypeMap[edu.qualification] || edu.qualification,
-        board_name_university: edu.board || edu.institution || '',
+        board_name_university: edu.board || edu.institute || edu.institution || '',
         year_of_passing: edu.year || '',
         percentage_sgpa: edu.percentage || '',
-        marksheet: marksheetPath,
-        certificate: certificatePath,
+        marksheet: '', // Will be set below
+        certificate: [], // Initialize as array for all documents
+        created_by: userId
       };
 
-      // Add additional fields based on qualification type
-      if (edu.qualification === 'UG' || edu.qualification === 'PG') {
-        educationDoc.course = edu.course || '';
-        educationDoc.duration = edu.duration || '';
-      } else if (edu.qualification === 'PhD') {
-        educationDoc.subject = edu.subject || '';
-        educationDoc.thesis = edu.thesis || '';
+      // Handle different education types
+      switch (edu.qualification) {
+        case '10th':
+          educationDoc.marksheet = documentFields.tenthMarksheet || '';
+          if (edu.marksheet) {
+            educationDoc.certificate.push({
+              type: 'marksheet',
+              path: documentFields.tenthMarksheet || ''
+            });
+          }
+          if (edu.certificate) {
+            educationDoc.certificate.push({
+              type: 'certificate',
+              path: documentFields.tenthCertificate || ''
+            });
+          }
+          break;
+          
+        case '12th':
+          educationDoc.marksheet = documentFields.twelfthMarksheet || '';
+          if (edu.marksheet) {
+            educationDoc.certificate.push({
+              type: 'marksheet',
+              path: documentFields.twelfthMarksheet || ''
+            });
+          }
+          if (edu.certificate) {
+            educationDoc.certificate.push({
+              type: 'certificate',
+              path: documentFields.twelfthCertificate || ''
+            });
+          }
+          break;
+          
+        case 'UG':
+          educationDoc.course = edu.course || '';
+          educationDoc.duration = edu.duration || 3;
+          educationDoc.marksheet = documentFields.ugMarksheets.join(',') || '';
+          // Add all UG marksheets
+          documentFields.ugMarksheets.forEach((mark, index) => {
+            if (mark) {
+              educationDoc.certificate.push({
+                type: `year${index+1}_marksheet`,
+                path: mark
+              });
+            }
+          });
+          break;
+          
+        case 'PG':
+          educationDoc.course = edu.course || '';
+          educationDoc.duration = 2; // Default for PG
+          educationDoc.marksheet = documentFields.pgMarksheets.join(',') || '';
+          // Add all PG marksheets
+          documentFields.pgMarksheets.forEach((mark, index) => {
+            if (mark) {
+              educationDoc.certificate.push({
+                type: `year${index+1}_marksheet`,
+                path: mark
+              });
+            }
+          });
+          break;
+          
+        case 'PhD':
+          educationDoc.subject = edu.subject || '';
+          educationDoc.thesis = edu.thesis || '';
+          educationDoc.marksheet = documentFields.phdCertificate || '';
+          if (documentFields.phdCertificate) {
+            educationDoc.certificate.push({
+              type: 'phd_certificate',
+              path: documentFields.phdCertificate
+            });
+          }
+          break;
       }
 
       educationDocs.push(educationDoc);
     }
 
-    // 9. Save user details (unchanged)
+    // 10. Save user details
     const detailsPayload = {
-      first_name: req.body.first_name,
-      middle_name: req.body.middle_name || '',
-      last_name: req.body.last_name,
-      full_name: req.body.full_name || '',
+      first_name: bodyData.first_name,
+      middle_name: bodyData.middle_name || '',
+      last_name: bodyData.last_name || '',
+      full_name: bodyData.full_name || `${bodyData.first_name} ${bodyData.last_name}`.trim(),
       email: email,
-      alt_email: req.body.alt_email || '',
+      alt_email: bodyData.alt_email || '',
       contact_no_1: contact_no_1,
-      contact_no_2: req.body.contact_no_2 || '',
-      father_name: req.body.father_name || '',
-      father_contact_no: req.body.father_contact_no || '',
-      father_dob: req.body.father_dob || '',
-      father_email: req.body.father_email || '',
-      mother_name: req.body.mother_name || '',
-      mother_contact_no: req.body.mother_contact_no || '',
-      mother_dob: req.body.mother_dob || '',
-      mother_email: req.body.mother_email || '',
-      guardian_name: req.body.guardian_name || '',
-      guardian_contact_no: req.body.guardian_contact_no || '',
-      guardian_dob: req.body.guardian_dob || '',
-      guardian_email: req.body.guardian_email || '',
-      guardian_relation: req.body.guardian_relation || '',
-      current_address: req.body.current_address,
-      current_city: req.body.current_city,
-      current_state: req.body.current_state,
-      current_country: req.body.current_country || '',
-      current_pincode: req.body.current_pincode,
-      permanent_address: req.body.permanent_address,
-      permanent_city: req.body.permanent_city,
-      permanent_state: req.body.permanent_state,
-      permanent_pincode: req.body.permanent_pincode,
-      permanent_country: req.body.permanent_country || '',
-      gender: req.body.gender,
-      dob: req.body.dob,
-      spouse_name: req.body.spouse_name || '',
-      spouse_dob: req.body.spouse_dob || '',
-      marital_status: req.body.marital_status || '',
-      no_of_children: req.body.no_of_children || '',
-      blood_group: req.body.blood_group || '',
-      date_of_joining: req.body.date_of_joining || '',
-      date_of_resignation: req.body.date_of_resignation || '',
-      leaving_date: req.body.leaving_date || '',
-      employee_type: req.body.employee_type || '',
-      employee_code: req.body.employee_code || '',
-      tax_region: req.body.tax_region || '',
-      bank_name: req.body.bank_name || '',
-      bank_acc_no: req.body.bank_acc_no || '',
-      ifsc_code: req.body.ifsc_code || '',
-      branch_address: req.body.branch_address || '',
-      UAN_no: req.body.UAN_no || '',
-      PF_no: req.body.PF_no || '',
-      esic_no: req.body.esic_no || '',
-      category: req.body.category || '',
-      religion: req.body.religion || '',
-      department_id: req.body.department_id || '',
-      designation_id: req.body.designation_id || '',
-      standard: req.body.standard || '',
-      section: req.body.section || '',
-      school_roll_no: req.body.school_roll_no || '',
-      admission_no: req.body.admission_no || '',
-      admission_date: req.body.admission_date || '',
-      profile_photo_path: req.body.profile_photo_path || '',
-      house_id: req.body.house_id || '',
-      deactivated: req.body.deactivated || true,
-      deleted_on: req.body.deleted_on || '',
-      status: req.body.status || '',
+      contact_no_2: bodyData.contact_no_2 || '',
+      father_name: bodyData.father_name || '',
+      father_contact_no: bodyData.father_contact_no || '',
+      father_dob: bodyData.father_dob || '',
+      father_email: bodyData.father_email || '',
+      mother_name: bodyData.mother_name || '',
+      mother_contact_no: bodyData.mother_contact_no || '',
+      mother_dob: bodyData.mother_dob || '',
+      mother_email: bodyData.mother_email || '',
+      guardian_name: bodyData.guardian_name || '',
+      guardian_contact_no: bodyData.guardian_contact_no || '',
+      guardian_dob: bodyData.guardian_dob || '',
+      guardian_email: bodyData.guardian_email || '',
+      guardian_relation: bodyData.guardian_relation || '',
+      current_address: bodyData.current_address,
+      current_city: bodyData.current_city,
+      current_state: bodyData.current_state,
+      current_country: bodyData.current_country || 'India',
+      current_pincode: bodyData.current_pincode,
+      permanent_address: bodyData.permanent_address,
+      permanent_city: bodyData.permanent_city,
+      permanent_state: bodyData.permanent_state,
+      permanent_pincode: bodyData.permanent_pincode,
+      permanent_country: bodyData.permanent_country || 'India',
+      gender: bodyData.gender,
+      dob: bodyData.dob,
+      spouse_name: bodyData.spouse_name || '',
+      spouse_dob: bodyData.spouse_dob || '',
+      marital_status: bodyData.marital_status || '',
+      no_of_children: bodyData.no_of_children || '',
+      blood_group: bodyData.blood_group || '',
+      date_of_joining: bodyData.date_of_joining || '',
+      date_of_resignation: bodyData.date_of_resignation || '',
+      leaving_date: bodyData.leaving_date || '',
+      employee_type: bodyData.employee_type || '',
+      employee_code: bodyData.employee_code || '',
+      tax_region: bodyData.tax_region || '',
+      bank_name: bodyData.bank_name || '',
+      bank_acc_no: bodyData.bank_acc_no || '',
+      ifsc_code: bodyData.ifsc_code || '',
+      branch_address: bodyData.branch_address || '',
+      UAN_no: bodyData.UAN_no || '',
+      PF_no: bodyData.PF_no || '',
+      esic_no: bodyData.esic_no || '',
+      category: bodyData.category || '',
+      religion: bodyData.religion || '',
+      department_id: bodyData.department_id || '',
+      designation_id: bodyData.designation_id || '',
+      profile_photo_path: bodyData.profile_photo_path || '',
+      house_id: bodyData.house_id || '',
+      deactivated: bodyData.deactivated || false,
+      deleted_on: bodyData.deleted_on || '',
+      status: bodyData.status || 'Active',
       user_id: userRecord.sequenceNo,
       created_by,
     };
 
     await UserDetails.create([detailsPayload]);
 
-    // 10. Save education qualifications
+    // 11. Save education qualifications
     for (const doc of educationDocs) {
-      const qualification = new UserQualification(doc);
-      await qualification.save();
+      try {
+        const qualification = new UserQualification({
+          user_id: doc.user_id,
+          education_type_id: doc.education_type_id,
+          board_name_university: doc.board_name_university,
+          year_of_passing: doc.year_of_passing,
+          percentage_sgpa: doc.percentage_sgpa,
+          marksheet: doc.marksheet,
+          certificate: doc.certificate.length > 0 ? doc.certificate : undefined,
+          created_by: doc.created_by
+        });
+        await qualification.save();
+      } catch (e) {
+        console.error('Error saving qualification:', e);
+      }
     }
 
-    // 11. Save document paths - Improved with proper field mapping
-    await UserDocuments.create([
-      {
-        user_id: userRecord.sequenceNo,
-        resume: documentFields.resume,
-        joining_letter: documentFields.joiningLetter,
-        offer_letter: documentFields.offerletter,
-        aadhar_card_no: req.body.adhar_no || '',
-        aadhar_card_front: documentFields.aadharFront,
-        aadhar_card_back: documentFields.aadharBack,
-        pan_card_no: req.body.pan_no || '',
-        pan_card: documentFields.panCard,
-        created_by: userId
-      },
-    ]);
+    // 12. Save document paths - Enhanced with all fields
+    const documentsPayload = {
+      user_id: userRecord.sequenceNo,
+      resume: documentFields.resume || '',
+      joining_letter: documentFields.joiningLetter || '',
+      offer_letter: documentFields.offerLetter || '',
+      aadhar_card_no: bodyData.aadharNo || '',
+      aadhar_card_front: documentFields.aadharFront || '',
+      aadhar_card_back: documentFields.aadharBack || '',
+      pan_card_no: bodyData.panNo || '',
+      pan_card: documentFields.panCard || '',
+      other_documents: documentFields.otherDocuments.length > 0 
+        ? documentFields.otherDocuments.join(',') 
+        : '',
+      created_by: userId
+    };
+
+    await UserDocuments.create([documentsPayload]);
 
     res.status(201).json({ 
       message: 'User created successfully',
       userId: userRecord.sequenceNo,
-      documents: documentFields, // Include document paths in response
+      documents: documentsPayload,
       educationDetails: educationDocs
     });
     
   } catch (error) {
     console.error('Error in Create:', error);
     
+    // Clean up uploaded files if error occurred
+    if (req.files) {
+      const filesArray = Array.isArray(req.files) ? req.files : Object.values(req.files);
+      filesArray.forEach(file => {
+        try {
+          if (file && file.path) {
+            fs.unlinkSync(file.path);
+          }
+        } catch (unlinkError) {
+          console.error('Error deleting uploaded file:', unlinkError);
+        }
+      });
+    }
+
     if (error.name === 'ValidationError') {
       const errors = {};
       for (const field in error.errors) {
