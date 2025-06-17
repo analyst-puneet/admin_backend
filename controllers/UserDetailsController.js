@@ -195,8 +195,10 @@ const Create = async (req, res) => {
     // 9. Process education details - Enhanced parsing with better error handling
     let educationDetails = [];
     try {
-      console.log("Original eduDetails:", bodyData.eduDetails);
-      const eduData = bodyData.educationDetails || bodyData.eduDetails;
+      console.log("Raw request body:", req.body);
+      console.log("Original educationDetails:", bodyData.educationDetails);
+      const eduData = bodyData.educationDetails || [];
+
       if (eduData) {
         // Parse if string, otherwise use directly
         educationDetails =
@@ -207,16 +209,17 @@ const Create = async (req, res) => {
           educationDetails = [educationDetails];
         }
       }
+      console.log("Processed Education Data:", educationDetails);
     } catch (e) {
       console.error("Education parsing failed:", {
         error: e.message,
         stack: e.stack,
-        inputData: bodyData.eduDetails,
+        inputData: bodyData.educationDetails,
       });
       return res.status(400).json({
         message: "Invalid education data format",
         error: e.message,
-        receivedData: bodyData.eduDetails,
+        receivedData: bodyData.educationDetails,
       });
     }
 
@@ -237,7 +240,7 @@ const Create = async (req, res) => {
     };
 
     // Process each education entry with better validation
-    for (const edu of eduDetails) {
+    for (const edu of educationDetails) {
       try {
         const educationDoc = {
           user_id: String(userRecord.sequenceNo),
@@ -260,9 +263,10 @@ const Create = async (req, res) => {
         // Handle documents based on qualification
         switch (edu.qualification) {
           case "10th":
-            if (edu.marksheet) doc.marksheet = documentFields.tenthMarksheet;
+            if (edu.marksheet)
+              educationDoc.marksheet = documentFields.tenthMarksheet;
             if (edu.certificate) {
-              doc.certificate = [
+              educationDoc.certificate = [
                 {
                   type: "10th_certificate",
                   path: documentFields.tenthCertificate,
@@ -272,9 +276,10 @@ const Create = async (req, res) => {
             break;
 
           case "12th":
-            if (edu.marksheet) doc.marksheet = documentFields.twelfthMarksheet;
+            if (edu.marksheet)
+              educationDoc.marksheet = documentFields.twelfthMarksheet;
             if (edu.certificate) {
-              doc.certificate = [
+              educationDoc.certificate = [
                 {
                   type: "12th_certificate",
                   path: documentFields.twelfthCertificate,
@@ -285,8 +290,8 @@ const Create = async (req, res) => {
 
           case "UG":
             if (edu.marksheets && edu.marksheets.length > 0) {
-              doc.marksheet = documentFields.ugMarksheets.join(",");
-              doc.certificate = edu.marksheets.map((_, i) => ({
+              educationDoc.marksheet = documentFields.ugMarksheets.join(",");
+              educationDoc.certificate = edu.marksheets.map((_, i) => ({
                 type: `ug_year_${i + 1}`,
                 path: documentFields.ugMarksheets[i],
               }));
@@ -295,8 +300,8 @@ const Create = async (req, res) => {
 
           case "PhD":
             if (edu.certificate) {
-              doc.marksheet = documentFields.phdCertificate;
-              doc.certificate = [
+              educationDoc.marksheet = documentFields.phdCertificate;
+              educationDoc.certificate = [
                 {
                   type: "phd_certificate",
                   path: documentFields.phdCertificate,
@@ -393,12 +398,7 @@ const Create = async (req, res) => {
       try {
         console.log("Attempting to save education docs:", educationDocs);
 
-        // Use insertMany but with session for transaction support
-        const session = await mongoose.startSession();
-        await session.withTransaction(async () => {
-          await UserQualification.insertMany(educationDocs, { session });
-        });
-        session.endSession();
+        await UserQualification.insertMany(educationDocs);
 
         console.log("Education details saved successfully");
       } catch (e) {
@@ -557,3 +557,5 @@ const Delete = async (req, res) => {
 };
 
 module.exports = { get_all_data, get_data, Create, Update, Delete };
+
+
