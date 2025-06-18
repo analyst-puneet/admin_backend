@@ -122,6 +122,11 @@ const Create = async (req, res) => {
     ]);
     const userRecord = user[0];
 
+    console.log(
+      "🔥 FILES RECEIVED:",
+      req.files?.map((f) => f.originalname || f.fieldname)
+    );
+
     // 8. Process file uploads - Enhanced document handling
     const documentFields = {
       resume: "",
@@ -140,6 +145,8 @@ const Create = async (req, res) => {
       otherDocuments: [],
     };
 
+    let profilePhotoPath = "";
+
     // Process all uploaded files
     if (req.files) {
       // Convert files to array format if needed
@@ -148,10 +155,17 @@ const Create = async (req, res) => {
         : Object.values(req.files);
 
       filesArray.forEach((file) => {
-        const filePath = `documents/${file.filename}`;
+        const filePath =
+          file.fieldname === "profilePhoto"
+            ? `profile-photos/${file.filename}`
+            : `documents/${file.filename}`;
 
         // Handle direct document uploads
-        if (file.fieldname === "resume") documentFields.resume = filePath;
+        if (file.fieldname === "profilePhoto") {
+          profilePhotoPath = filePath;
+          console.log("🔥 PROFILE PHOTO PATH:", profilePhotoPath);
+        } else if (file.fieldname === "resume")
+          documentFields.resume = filePath;
         else if (file.fieldname === "joiningLetter")
           documentFields.joiningLetter = filePath;
         else if (file.fieldname === "offerLetter")
@@ -382,7 +396,7 @@ const Create = async (req, res) => {
       religion: bodyData.religion || "",
       department_id: bodyData.department_id || "",
       designation_id: bodyData.designation_id || "",
-      profile_photo_path: bodyData.profile_photo_path || "",
+      profile_photo_path: profilePhotoPath || "",
       house_id: bodyData.house_id || "",
       deactivated: bodyData.deactivated || false,
       deleted_on: bodyData.deleted_on || "",
@@ -557,5 +571,3 @@ const Delete = async (req, res) => {
 };
 
 module.exports = { get_all_data, get_data, Create, Update, Delete };
-
-

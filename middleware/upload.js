@@ -1,21 +1,26 @@
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 
 // Ensure upload directory exists
-const uploadPath = path.join(__dirname, '..', 'public', 'documents');
+const uploadPath = path.join(__dirname, "..", "public", "documents");
 if (!fs.existsSync(uploadPath)) {
   fs.mkdirSync(uploadPath, { recursive: true });
 }
 
+const profilePhotoPath = path.join(__dirname, "..", "public", "profile-photos");
+if (!fs.existsSync(profilePhotoPath))
+  fs.mkdirSync(profilePhotoPath, { recursive: true });
+
 // Known standalone fields
 const knownFields = [
-  'aadharFront',
-  'aadharBack',
-  'panCard',
-  'resume',
-  'joiningLetter',
-  'offerletter'
+  "aadharFront",
+  "aadharBack",
+  "panCard",
+  "resume",
+  "joiningLetter",
+  "offerletter",
+  "profilePhoto",
 ];
 
 // Function to determine logical field label
@@ -24,19 +29,23 @@ function extractFieldLabel(fieldname) {
 
   // Nested document pattern (e.g., documents[0][files][1][filename])
   const match = fieldname.match(/\[files]/i);
-  if (match) return 'marksheet';
+  if (match) return "marksheet";
 
   // You can extend this if certificates come in a different pattern
   const certMatch = fieldname.match(/\[certificate]/i);
-  if (certMatch) return 'certificate';
+  if (certMatch) return "certificate";
 
-  return 'other';
+  return "other";
 }
 
 // Multer storage config
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, uploadPath);
+    if (file.fieldname === "profilePhoto") {
+      cb(null, profilePhotoPath);
+    } else {
+      cb(null, uploadPath);
+    }
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname); // e.g. .pdf
@@ -47,7 +56,7 @@ const storage = multer.diskStorage({
     const newFileName = `${logicalField}_${random}_${timestamp}${ext}`;
 
     cb(null, newFileName);
-  }
+  },
 });
 
 const upload = multer({ storage });
