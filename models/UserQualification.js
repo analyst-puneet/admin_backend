@@ -47,4 +47,4 @@ userQualificationSchema.plugin(AutoIncrement, {
   id: "qualification_seq",
 });
 
-module.exports = mongoose.model("UserQualification", userQualificationSchema);
+module.exports = mongoose.model("UserQuaalification", userQualificationSchema);
