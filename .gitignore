@@ -137,4 +137,4 @@ dist
 
 
 # for public folder(documents)
-./public/documents
+/public/documents/
